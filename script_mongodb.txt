@@ -1,0 +1,57 @@
+/*
+QUERIES ON ENRON EMAILS DATABASE
+*/
+
+// Import the enron.json in the collection "emails" [Shell command]
+mongoimport --db test --collection emails --file /.../enron.json
+
+// What is the total amount of emails ? [Query + Result]
+db.emails.count()
+// 5929 documents
+
+// What is the amount of emails sent from domain enron.com ? [Query + Result]
+db.emails.count({sender:{$regex:"enron.com$"}})
+// 2436 documents
+
+// List the reply emails (starting with "Re:") [Query + Result]
+db.emails.find({subject:{$regex:"^Re:"}})
+// (752 documents in total)
+// note: emails with subject "re:" (lower case) are ignored (2 cases)
+
+// How long took the last request [Request + Time]
+db.emails.find({subject:{$regex:"^Re:"}}).explain()
+// 21 milliseconds
+
+// Index the right field and compute the request again [Index Query + Time]
+db.emails.ensureIndex({subject:1})
+// last query of 1.1 now takes 5 milliseconds
+
+// Find dates, sender and subject of all messages sent to rob.bradley@enron.com [Query]
+db.emails.find({to:'rob.bradley@enron.com'},{date:true,sender:true,subject:true,_id:false})
+
+// Remove lizard_ar@yahoo.com from all the email recipient [Query]
+db.emails.update({recipients:'lizard_ar@yahoo.com'},{$pullAll : {recipients:['lizard_ar@yahoo.com']}},{multi:true})
+
+// Add rob.bradley@enron.com as recipient to all emails sent by rosalee.fleming@enron.com [Query]
+db.emails.update({sender:'rosalee.fleming@enron.com'},{$addToSet:{recipients:"rob.bradley@enron.com"}},{multi:true})
+
+/*
+QUERIES ON US ZIPCODES DATABASE
+*/
+
+// List the 10 most populated cities in California and Louisiana [Query]
+db.zips.find({state:{$in: ["CA","LA"]}},{city:true,_id:false}).sort({pop:-1}).limit(10)
+
+// Then most populated cities in California and Louisiana ranked 10 to 20 [Query]
+db.zips.find({state:{$in: ["CA","LA"]}},{city:true,_id:false}).sort({pop:-1}).limit(11).skip(9)
+
+// Add a field country with the value USA to all the documents [Query]
+db.zips.update({},{$set:{country:"USA"}},{multi:true})
+
+// List names of all cities with more than 100 000 inhabitant located on the west side of db.zips.find({$and:[{pop:{$gt:100000}},{loc:{$lte:-110.0}}]})
+// no results are found
+
+// The city near New York with the biggest population [Query + Answer]
+db.zips.findOne({$and:[{'loc':{$near:[-73.96,40.65]}},{city:{$nin:['BROOKLYN','BROOKLYN NAVY YA','NEW YORK','GOVERNORS ISLAND']}}]})
+// note: we do not use the population criteria here (we chose the nearestcity, not the one with the biggest population
+// result: Ridgewood (here Brooklyn/Governors Island are filtered since they are neighborhoods of New York
